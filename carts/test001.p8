@@ -3,7 +3,7 @@ version 8
 __lua__
 
 function _init()
-	print("‡‡‡‡", 50, 55, 8)
+	
 
 end
 
@@ -13,6 +13,7 @@ end
 
 function _draw()
 	cls()
+	print("‡‡‡‡", 50, 55, 8)
 end
 
 __gfx__
