@@ -1,243 +1,129 @@
 pico-8 cartridge // http://www.pico-8.com
 version 8
 __lua__
-function _init()
- cls()
- mode="start"
+--particles tutorial
+--christian williames
+
+--begin with an empty table
+--this will hold all existing particles
+smoke = {}
+
+--[[
+this function creates a new
+'smoke' particle (another table)
+and adds that particle to the 'smoke' list
+
+call it whenever you want more smoke
+--]]
+function make_smoke(startx, starty)
+ 
+ --this section holds all the properties of a particle
+ --such as x,y,speed,duration,etc
+ --you can add as many properties as you want
+ local smoke_particle = {
+   --the location of the particle
+   x=startx,
+   y=starty,
+   --what percentage 'dead'is the particle
+   t = 0,
+   --how long before the particle fades
+   life_time=20+rnd(10),
+   --how big is the particle,
+   --and how large will it grow?
+   size = 1,
+   max_size = 1+rnd(3),
+   
+   --'delta x/y' is the movement speed,
+   --or the change per update in position
+   --randomizing it gives variety to particles
+   dy = rnd(0.7) * -1,
+   dx = rnd(0.4) - 0.2,
+   --'ddy' is a kind of acceleration
+   --increasing speed each step
+   --this makes the particle seem to float
+   ddy = -0.05,
+   --what color is the particle
+   col = 7
+ }
+ --after making the particle, add it to the list 'smoke'   
+ add(smoke,smoke_particle)
 end
 
-function _update60()
- if mode=="game" then
-  update_game()
- elseif mode=="start" then
-  update_start()
- elseif mode=="gameover" then
-  update_gameover()
- end
-end
-
-function update_start()
- if btn(4) then
-  startgame()
- end
-end
-
-function startgame()
- mode="game"
- ball_r=2
- ball_dr=0.5
-
- pad_x=52
- pad_y=120
- pad_dx=0
- pad_w=24
- pad_h=3
- pad_c=7
- 
- brick_w=9
- brick_h=4
- brick_c=14
- 
- buildbricks()
- 
- lives=3
- points=0
- serveball()
-end
-
-function buildbricks()
-	local i
-	brick_x={}
- brick_y={}
- brick_v={}
- 
- for i=1, 55 do
- 	add(brick_x, 4+((i-1))%11*(brick_w+2))
- 	add(brick_y, 20+flr((i-1)/11)*(brick_h+2))
- 	add(brick_v, true)
- end
-end
-
-function serveball()
- ball_x=5
- ball_y=70
- ball_dx=1
- ball_dy=1
-end
-
-function gameover()
- mode="gameover"
-end
-
-function update_gameover()
- if btn(4) then
-  startgame()
- end 
-end
-
-function update_game()
- local buttpress=false
- local nextx,nexty
- 
- if btn(0) then
-  --left
-  pad_dx=-2.5
-  buttpress=true
-  --pad_x-=5
- end
- if btn(1) then
-  --right
-  pad_dx=2.5
-  buttpress=true
-  --pad_x+=5 
- end
- if not(buttpress) then
-  pad_dx=pad_dx/1.3
- end
- pad_x+=pad_dx
- 
- pad_x=mid(0,pad_x,127-pad_w)
- 
- nextx=ball_x+ball_dx
- nexty=ball_y+ball_dy
-
- if nextx > 124 or nextx < 3 then
-  nextx=mid(0,nextx,127)  
-  ball_dx = -ball_dx
-  sfx(0)
- end
- if nexty < 10 then
-  nexty=mid(0,nexty,127) 
-  ball_dy = -ball_dy
-  sfx(0)
- end
- 
- -- check if ball hit pad
- if ball_box(nextx,nexty,pad_x,pad_y,pad_w,pad_h) then
-  -- deal with collision
-  if deflx_ball_box(ball_x,ball_y,ball_dx,ball_dy,pad_x,pad_y,pad_w,pad_h) then
-   ball_dx = -ball_dx
-  else
-   ball_dy = -ball_dy
+--[[
+this function needs to be called every update
+in order for the smoke to move
+--]]
+function update_smoke()
+  --perform actions on every particle
+  for p in all(smoke) do
+    --move the smoke
+    p.y += p.dy
+    p.x += p.dx
+    p.dy+= p.ddy
+    --increase the smoke's life counter
+    --so that it lives the correct number of steps
+    p.t += 1/p.life_time
+    --grow the smoke particle over time
+    --(but not smaller than its starting size)
+    p.size = max(p.size, p.max_size * p.t )
+    --make fading smoke particles a darker color
+    --gives the impression of fading
+    --change color if over 70% of time passed
+    if p.t > 0.7  then
+      p.col = 6
+    end
+    if p.t > 0.9 then
+      p.col = 5
+    end
+    --if the particle has expired,
+    --remove it from the 'smoke' list
+    if p.t > 1 then
+      del(smoke,p)
+    end
   end
-  sfx(1)
-  points+=1
- end
- 
- for i=1, #brick_x do	
-	 -- check if ball hit brick
-	 if brick_v[i] and  ball_box(nextx,nexty,brick_x[i],brick_y[i],brick_w,brick_h) then
-	  -- deal with collision
-	  if deflx_ball_box(ball_x,ball_y,ball_dx,ball_dy,brick_x[i],brick_y[i],brick_w,brick_h) then
-	   ball_dx = -ball_dx
-	  else
-	   ball_dy = -ball_dy
-	  end
-	  sfx(3)
-	  brick_v[i]=false
-	  points+=1
-	 end
- end
- 
- 
- ball_x=nextx
- ball_y=nexty
- 
- if nexty > 127 then
-  sfx(2)
-  lives-=1
-  if lives<0 then
-   gameover()
-  else
-   serveball()
+end
+
+--call during draw function to
+--draw the smoke
+function draw_smoke()
+  --draw each particle
+  for p in all(smoke) do
+    --draw a circle to be the smoke
+    --replace this with whatever you want
+    --your smoke to look like
+    circfill(p.x, p.y, p.size, p.col)
   end
- end
+end
+
+--actually create particles
+function _update()
+  --random chance to make smoke
+  if rnd(2)<1 then
+    make_smoke(64,64)
+  end
+  update_smoke()
 end
 
 
 function _draw()
- if mode=="game" then
-  draw_game()
- elseif mode=="start" then
-  draw_start()
- elseif mode=="gameover" then
-  draw_gameover()
- end
-end
-
-function draw_start()
- cls()
- print("pico hero breakout",30,40,7)
- print("press — to start",32,80,11)
-end
-
-function draw_gameover()
- --cls()
- rectfill(0,60,128,75,0)
- print("game over",46,62,7)
- print("press — to restart",27,68,6)
-end
-
-function draw_game()
- local i
- 
- cls(1)
- circfill(ball_x,ball_y,ball_r, 10)
- rectfill(pad_x,pad_y,pad_x+pad_w,pad_y+pad_h,pad_c)
- 
- for i=1, #brick_x do	
- 	if brick_v[i] then
- 	rectfill(brick_x[i],brick_y[i],brick_x[i]+brick_w,brick_y[i]+brick_h,brick_c)
- 	end
- end
- 
- rectfill(0,0,128,6,0)
- print("lives:"..lives,1,1,7)
- print("score:"..points,40,1,7)
- 
-end
-
-function ball_box(bx,by,box_x,box_y,box_w,box_h)
- -- checks for a collion of the ball with a rectangle
- if by-ball_r > box_y+box_h then return false end
- if by+ball_r < box_y then return false end
- if bx-ball_r > box_x+box_w then return false end
- if bx+ball_r < box_x then return false end
- return true
-end
-
-function deflx_ball_box(bx,by,bdx,bdy,tx,ty,tw,th)
-    local slp = bdy / bdx
-    local cx, cy
-    if bdx == 0 then
-        return false
-    elseif bdy == 0 then
-        return true
-    elseif slp > 0 and bdx > 0 then
-        cx = tx - bx
-        cy = ty - by
-        return cx > 0 and cy/cx < slp
-    elseif slp < 0 and bdx > 0 then
-        cx = tx - bx
-        cy = ty + th - by
-        return cx > 0 and cy/cx >= slp
-    elseif slp > 0 and bdx < 0 then
-        cx = tx + tw - bx
-        cy = ty + th - by
-        return cx < 0 and cy/cx <= slp
-    else
-        cx = tx + tw - bx
-        cy = ty - by
-        return cx < 0 and cy/cx >= slp
-    end
+  --clear the screen
+  cls()
+  --draw torch sprite
+  spr(1,61,63)
+  --draw the smoke
+  draw_smoke()
 end
 __gfx__
+00000000000800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000010801000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00700700108980100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00077000018a81000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00077000101410100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00700700011411000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000101110100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000010001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00700700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00077000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00077000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00700700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -356,10 +242,135 @@ __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+__label__
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddfdffdddddddddddddddddddfdfddddddddddddddddddddfdddddfddddfdddfddddddddddddddffdddddddfddfddddddfddddddd
+dddffddddddddddddddddddddddddddddfdddfdddddddddddddddddddddddddddddddddddddddfddddddfddddddddddddffdffdddddddddddddddddddffddfdd
+ddfdddddddddddffddddddddfdfddddddddddfddddddddfddfdddfdfddfdddfddfddffdfdfddddddddddddddddddddddddddddddddddddddddfddddddddddddd
+dddddddddddddddddddddddddfdfddddddddddddddffddddfdddddddddddddddddddddddddddfddddfdfddddfdddfdddddddddddddddddddddfdddddfddddfdd
+dddddddddddddddfdddfddddddfdddffdddddddfddddddddddddddfdfdfddfddddddfddfdfddddffdddddddddfddddfddddddfddfddfffddddddddddddfddfdd
+ddddddddfdfddddddfddddffdddfddddddddddfdfdddddfdffddddfdddfdffdffdddfdfddddddddfdddddddddddfdddddfddfddddddddddddddddfddfddfdfff
+dddddffdddddfdddddfdfdddfdddfdddddddddddddddddfddddfddddfddddddddddfdfdddddddddddddddddddfddddfdddddddfddddddfddfddffdddffdddddd
+fddddfdfdfdddddddddfdddfdfddddffddddfdffdfdfddfdddddddfdddddfddddddfdddfdfddfddfddddddddddddddddfddfdddfdddfdddddddddddddddfdfdd
+dddddfddddddddddddddddddddfddddfdfdddfdfddfddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 
 __gff__
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -398,10 +409,10 @@ __map__
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __sfx__
-000100001e050170500e050080500805008050270002600025000240002300022000200001e0001c000170000e000171001610008100081000910009100071000310001100000000000000000000000000000000
-000100001934019340193401933019320193101a30017300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-001000001875014750127500f7500d750067500175007500035500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000300000f0300a0500f5500c60003600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
