@@ -75,6 +75,8 @@ function _init()
 	frame=0
 	frame_time=0
 	cur_score=0
+	high_score=0
+	--new_h_score=false
 	debug=0
 	max_enemies=3
 
@@ -87,6 +89,19 @@ function _init()
 	
 	set_timers()
 	
+	start()
+	
+end
+
+function reset()
+	frame=0
+	frame_time=0
+	cur_score=0
+	init_player()
+	enemies = {}
+	fruits = {}
+	set_timers()
+	spawn_enemy((flr(rnd(4))))
 end
 
 function set_timers()
@@ -112,10 +127,14 @@ function update_timers()
 			t.cur -= 1
 			if t.cur <= 0 then
 				t.cur = t.org
-				if #fruits==0 and
-					t.name=="fruit" then 
+				if t.name=="fruit" then 
+					del(fruits, fruits[1])
 					spawn_fruit()
 				end
+				--if #fruits==0 and
+				--	t.name=="fruit" then 
+				--	spawn_fruit()
+				--end
 				if t.name=="enemy" then 
 					if #enemies<max_enemies then
 						spawn_enemy((flr(rnd(4))))								
@@ -129,7 +148,40 @@ function update_timers()
 		end
 end
 
-function _update60()
+function start()
+	reset()
+ _update60 = update_game
+ _draw = draw_game
+end
+
+function game_over()
+	local new_h_score=false
+ if cur_score > high_score then
+ 	high_score = cur_score
+ 	new_h_score=true
+ end
+ _update60 = update_over
+ _draw = draw_over(new_h_score)
+end
+
+function update_over()
+ if btn(4) or btn(5) then
+  start()
+ end 
+end
+
+function draw_over(new_h_score)
+ cls(1)
+	print("game over",46,32,7)
+	if (new_h_score) print("new high score!",36,42,8)
+	rectfill(0,60,128,78,0)
+ print("your score: "..cur_score,36,62,11)
+ print("high score: "..high_score,36,72,9)
+ print("press — to restart",27,108,6)
+end
+
+
+function update_game()
 		cls(1)
 		frame+=1
 		frame_time=flr(frame/60)
@@ -200,6 +252,14 @@ function _update60()
 			if (e.y < -50) del(enemies,e)
 			if (e.y > 200) del(enemies,e)
 		end
+		
+		--enemy vs player
+		for e in all(enemies) do
+			if coll(e, p) then
+				--del(enemies, e)
+				game_over()
+			end
+		end
 				
 		--keep player in the screen
 		p.x=mid(0,p.x, 127-8)
@@ -207,9 +267,9 @@ function _update60()
 		
 end
 
-function _draw()
+function draw_game()
 	print("score:"..cur_score)
-	print("debug:"..debug)
+	--print("debug:"..debug)
 	
 	for f in all(fruits) do
 		spr(f.sprite, f.x, f.y)		
